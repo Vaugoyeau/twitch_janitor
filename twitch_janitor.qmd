@@ -1,0 +1,60 @@
+---
+title: "Exploiter `{janitor}` pour nettoyer les données"
+author: "Marie Vaugoyeau"
+date: "2024/11/12"
+date-format: "D MMMM YYYY"
+format: 
+  pdf:
+    toc: true
+    number-sections: true
+    papersize: letter
+execute: 
+  warning: false
+---
+
+# import des packages   
+```{r}
+
+```
+
+# import des données   
+Les données ont été créées pour l'occasion.  
+```{r}
+
+```
+
+# Regardons un peu les données   
+```{r}
+
+```
+
+# Améliorer les noms des colonnes  
+```{r}
+
+```
+  
+![](img/format_nom.png)  
+
+```{r}
+
+```
+
+# retirer les colonnes vides
+```{r}
+
+```
+
+# traiter les dates excel  
+```{r}
+
+```
+
+# créer des tableaux résumés rapidement  
+```{r}
+
+```
+
+```{r}
+
+```
+
