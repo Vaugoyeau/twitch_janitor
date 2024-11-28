@@ -11,50 +11,213 @@ format:
 execute: 
   warning: false
 ---
+ 
+\newpage  
 
+[![](https://sfirke.github.io/janitor/reference/figures/logo_small.png)](https://sfirke.github.io/janitor/)  
+  
+
+Le but de `{janitor}` est de proposer des [fonctions simples](https://cran.r-project.org/web/packages/janitor/vignettes/janitor.html) qui permettent de nettoyer des données brutes qui sont bof côté structure :  
+  
+- doublons de lignes  
+- des colonnes vides  
+- des noms de colonnes répétés, non homogène ou même absent  
+  
+Associé à ces fonctions de nettoyage, il y a [`tabyls`](https://sfirke.github.io/janitor/articles/tabyls.html) qui permet de visualiser les données sous la forme de tableaux résumés.  
+  
 # import des packages   
 ```{r}
+#| warning: true
 
+library(tidyverse)
+library(janitor)
 ```
 
+::: callout-warning
+## Attention aux conflits  
+
+Le chargement des deux packages à masquer 4 fonctions du package `{stats}`.  
+:::  
+  
 # import des données   
-Les données ont été créées pour l'occasion.  
+Les [données](https://github.com/Vaugoyeau/twitch_janitor/blob/master/data/donnees.xlsx) ont été créées pour l'occasion et sont disponible sur [GitHub](https://github.com/Vaugoyeau/twitch_janitor).  
+  
+J'ai choisi de ne pas utilisé les données créées par [Sam Firke](https://github.com/sfirke/janitor/blob/main/dirty_data.xlsx) afin de changer mais n'hésites pas à aller voir [ses exemples](https://github.com/sfirke/janitor) !  
+  
 ```{r}
-
-```
-
-# Regardons un peu les données   
-```{r}
-
-```
-
-# Améliorer les noms des colonnes  
-```{r}
-
+data <- readxl::read_xlsx("data/donnees.xlsx")
 ```
   
-![](img/format_nom.png)  
-
+# Regardons un peu les données   
 ```{r}
-
+glimpse(data)
+summary(data)
 ```
 
-# retirer les colonnes vides
+Comme tu le vois peut-être les noms des colonnes ne sont pas terribles (présence d'un saut de ligne `\r`, présence de parenthèses, majuscules...).  
+Il y a aussi des dates mal traduites dans la colonne `date` et une colonne vide 😬  
+  
+  
+# Améliorer les noms des colonnes  
+L'uniformisation des noms est facile grâce à la fonction `clean_names()`.  
 ```{r}
-
+(donnees <- data |> 
+  clean_names())
 ```
+  
+![](img/format_nom.png) [Artwork by @allison_horst](https://allisonhorst.com/)  
+Il est possible de choisir le format de colonne comme le `BigCamel`, `lowerCamel`, `SCREAMING_SNAKE` et d'autre.   
+  
+```{r}
+(donnees <- readxl::read_xlsx("data/donnees.xlsx") |> 
+  clean_names(case = "lower_camel"))
+  
+```
+  
+Je vais conserver la forme par défaut qui est le `snake_case` que j'utilise d'habitude.  
+La fonction `make_clean_name()` permet la même chose mais sur un vecteur de nom. Ici, appliqué sur la colonne `prenom_patient_e` elle me permet d'uniformiser les prénoms en retirant les accents, les majuscules, les tirets...  
+   
+```{r}
+(donnees <- readxl::read_xlsx("data/donnees.xlsx") |> 
+  clean_names() |> 
+  mutate(
+    prenom_patient_e = 
+      prenom_patient_e |> 
+      make_clean_names()
+  ))
+```
+
+# retirer les colonnes vides  
+La fonction `remove_empty()` permet de retirer les lignes et/ou les colonnes vides.  
+```{r}
+(donnees <- readxl::read_xlsx("data/donnees.xlsx") |> 
+  clean_names() |> 
+  mutate(
+    prenom_patient_e = make_clean_names(prenom_patient_e)
+  ) |> 
+  remove_empty())
+```
+
+::: callout-note  
+L'argument `which` par défaut est `c("rows", "cols")`. C'est cet argument qui permet de choisir de supprimer les lignes et/ou les colonnes vides.  
+:::  
+  
+Une fonction associée est `remove_constant()` qui retire les **colonnes constantes** (donc les colonnes vides aussi).    
+  
+```{r}
+(donnees <- readxl::read_xlsx("data/donnees.xlsx") |> 
+  clean_names() |> 
+  mutate(
+    prenom_patient_e = 
+      prenom_patient_e |> 
+      make_clean_names()
+  ) |> 
+  remove_constant())
+```
+   
 
 # traiter les dates excel  
+[Lors du live](https://www.twitch.tv/videos/2300000755), je t'ai montré les différentes étapes pour arriver au code ci-dessous qui permet de remplacer les dates format Excel (comme `45398` par exemple) sous un format date `yyyy-mm-dd`.  
+  
 ```{r}
-
+(donnees <- readxl::read_xlsx("data/donnees.xlsx") |> 
+  clean_names() |> 
+  mutate(
+    prenom_patient_e = 
+      prenom_patient_e |> 
+      make_clean_names()
+  ) |> 
+  remove_constant() |> 
+  mutate(
+    date = 
+      case_when(
+        str_detect(date, "-") ~ date,
+        TRUE ~ date |> 
+          as.numeric() |> 
+          excel_numeric_to_date() |> 
+          as.character()
+      ) |> 
+      ymd()
+  ))
 ```
-
+  
 # créer des tableaux résumés rapidement  
+En plus de bien nettoyer les données, le package [`{janitor}`](https://sfirke.github.io/janitor/articles/tabyls.html) permet de réaliser rapidement et simplement des tableaux résumés avec des analyses de données.  
+
+La première fonction à utiliser est `tabyl()`, une fonction un peu similaire à `count()` de `{dplyr}`.  
+  
 ```{r}
+tabyl(donnees, date)
 
 ```
 
+Au contraire de `count()`, `tabyl()` génère des tableaux croisés sous le même format que `table()` du package `{base}`.  
+  
 ```{r}
-
+tabyl(donnees, sexe_genre, date)
 ```
+
+Il est possible d'ajouter d'un titre aux colonnes grâce à la fonction `adorn_title()`.  Toutes les fonctions commençant par `adorn_` permettent de modifier le tableau généré.  
+  
+```{r}
+tabyl(donnees, sexe_genre, date) |> 
+  adorn_title()
+```
+
+La fonction `adorn_totals()` permet par exemple d'ajouter une colonne total   
+```{r}
+#| error: true
+
+tabyl(donnees, sexe_genre, date) |> 
+  adorn_title() |> 
+  adorn_totals(where = c("row", "col"))
+```
+
+::: callout-warning
+## Attention  
+
+Il faut faire attention à l’ordre des lignes !  
+:::
+  
+```{r}
+tabyl(donnees, sexe_genre, date) |> 
+  adorn_totals(where = c("row", "col")) |> 
+  adorn_title()
+```
+
+Enfin les fonctions `adorn_percentages()` et `adorn_pct_formatting()` affichent les pourcentages pourcentages pour la première et le nombre entre parenthèses pour la deuxième.  
+
+```{r}
+tabyl(donnees, date, sexe_genre) |> 
+  adorn_totals(where = c("row", "col")) |> 
+  adorn_percentages() |> 
+  adorn_pct_formatting(digits = 1) |> 
+  adorn_ns() |> 
+  adorn_title()
+```
+  
+# En savoir un peu plus sur moi  
+Bonjour, 
+  
+Je suis Marie Vaugoyeau et je suis disponible pour des **missions en freelance** d’**accompagnement à la formation** à R et à l’analyse de données et/ou en **programmation** (reprise de scripts, bonnes pratiques de codage, développement de package).  
+Ayant un **bagage recherche en écologie**, j’ai accompagné plusieurs chercheuses en biologie dans leurs analyses de données mais je suis ouverte à d’autres domaines.  
+  
+Vous pouvez retrouver mes offres [ici](https://marievaugoyeau.notion.site/MStats-Marie-Vaugoyeau-d69b566c83414152ac85eae012c970fb).  
+  
+**En plus de mes missions de consulting je diffuse mes savoirs en R et analyse de données sur plusieurs plateformes :**   
+  
+- J’ai écrit [un **livre** aux éditions ENI](https://www.editions-eni.fr/livre/langage-r-et-statistiques-initiation-a-l-analyse-de-donnees-9782409036934)  
+- Tous les mois je fais [un **live sur Twitch**](https://www.twitch.tv/marievaugoyeau/videos) pour parler d’un package de R, d’une analyse  
+- Je rédige une **newsletter** de manière irrégulière pour parler de mes **inspirations** et transmettre **des trucs et astuces sur R**. Pour s’y inscrire, [c’est par là](https://d1154691.sibforms.com/serve/MUIEAGj4fIubg6D4qHb7BoZSxNhzkV4p2L0I7GHpNopbqPeDS1J0SpOgaTDCavroygrDTCukB0La-8s1nsQw5wCANT5UP64en1GudsGbKhGVlwbvP_bJdAJ0ECF9BOZ1swRKEnKlnWzTHpLjknJvrCXiH_xw4F_go_2kVB0dWWrkJzRoE22BXImtgVOu29gBxx2hjFkINdeW7Cae?). J’ai aussi [un **blog**](https://mvaugoyeau.netlify.app/fr/) sur lequel vous pourrez retrouver une version de cet article.  
+  
+Pour en savoir encore un peu plus sur moi, il y a [LinkedIn](https://www.linkedin.com/in/marie-vaugoyeau-72ab64153/) et pour retrouver [tous ces liens et plus encore, c'est ici](https://linktr.ee/mstats)  
+  
+**N’hésitez pas à me contacter sur [marie.vaugoyeau@gmail.com](mailto:marie.vaugoyeau@gmail.com) !**  
+  
+Bonne journée   
+  
+Marie  
+  
+![](C:/Users\Marie\Dropbox\Mstats\Img\bandeauSignatureGmail.png)
+
 
